@@ -1,4 +1,4 @@
-import AllOk from "@/components/global/allok"
+import AllOk from "@/components/global/allOk"
 import { buttonVariants } from "@/components/ui/button"
 import Link from "next/link"
 
