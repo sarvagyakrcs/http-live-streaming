@@ -11,3 +11,9 @@ export const getUrl = (base: string, endpoint: string) => {
   }
   return `${base}/${endpoint}`
 }
+
+export function camelToWords(str: string) {
+  return str
+    .replace(/([a-z])([A-Z])/g, '$1 $2') // add space before capital letters
+    .replace(/^./, (s: string) => s.toUpperCase()); // capitalize first letter
+}

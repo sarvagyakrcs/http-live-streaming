@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import axios from 'axios'
 import { Spinner } from '../ui/spinner'
+import { camelToWords } from '@/lib/utils'
 
 interface PingResult {
   url: string
@@ -70,6 +71,7 @@ function AllOk() {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Role</TableHead>
             <TableHead>URL</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Latency</TableHead>
@@ -79,7 +81,10 @@ function AllOk() {
           {pingResults.map((result, i) => {
             return (
               <TableRow key={i}>
-              <TableCell className='font-mono text-sm'>{result.url}</TableCell>
+              <TableCell>
+                {camelToWords(Object.keys(apiEndpoints).find((key) => apiEndpoints[key].ping === result.url) ?? "Unknown")}
+              </TableCell>
+              <TableCell className='font-mono text-sm'>{result.url.split("/")[2]}</TableCell>
               <TableCell>
                 {result.status === 'loading' ? (
                   <Spinner />
