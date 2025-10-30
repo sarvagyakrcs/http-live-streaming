@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"DASH/upload-server/lib"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -71,6 +73,40 @@ func UploadHandler(c *gin.Context) {
 	}
 
 	// step : 5 -> run ffmpeg to create .ts files
+	log.Println("Running ffmpeg to transcode video")
+	err = exec.Command("sh", "./shell-scripts/transcode.sh", filePath).Run()
+	if err != nil {
+		log.Println("Failed to run ffmpeg", err)
+		c.JSON(http.StatusInternalServerError, map[string]any{
+			"message": "Something went wrong",
+			"error":   err.Error(),
+		})
+		return
+	}
+	log.Println("Uploading output to r2 bucket")
+	lib.UploadOutToBucket(filePath)
+
+	defer func () {
+		// step : 6 -> delete local files
+		if err := os.RemoveAll(uploadDir); err != nil {
+			log.Println("Failed to delete local files", err)
+			c.JSON(http.StatusInternalServerError, map[string]any{
+				"message": "Something went wrong",
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		if err := os.RemoveAll("./../output"); err != nil {
+			log.Println("Failed to delete output directory", err)
+			c.JSON(http.StatusInternalServerError, map[string]any{
+				"message": "Something went wrong",
+				"error":   err.Error(),
+			})
+			return
+		}
+		log.Println("Output directory deleted")
+	}()
 
 	// step : 5 -> return success response
 	elapsed := time.Since(start)
