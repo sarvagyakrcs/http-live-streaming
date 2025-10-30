@@ -9,15 +9,7 @@ import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import axios from 'axios'
 import { apiEndpoints } from '@/config'
-import { Spinner } from '@/components/ui/spinner'
 import { UploadProgress } from './uploadProgress'
-
-interface UploadStep {
-  id: string
-  title: string
-  description: string
-  status: 'pending' | 'in-progress' | 'completed' | 'error'
-}
 
 const UploadForm = () => {
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
@@ -25,8 +17,17 @@ const UploadForm = () => {
   const [fileName, setFileName] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [uploadSteps, setUploadSteps] = useState<UploadStep[]>([])
+  const [currentMessage, setCurrentMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cycleIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const messages = [
+    'Uploading video chunks...',
+    'Transcoding to 144p...',
+    'Transcoding to 360p...',
+    'Transcoding to 720p...',
+    'Saving to storage...'
+  ]
 
   const form = useForm<UploadFormSchema>({
     defaultValues: {
@@ -36,12 +37,13 @@ const UploadForm = () => {
     resolver: zodResolver(uploadFormSchema),
   })
 
-  // Cleanup preview URL on unmount
+  // Cleanup preview URL and interval on unmount
   useEffect(() => {
     return () => {
       if (videoPreview) {
         URL.revokeObjectURL(videoPreview)
       }
+      stopCyclingMessages()
     }
   }, [videoPreview])
 
@@ -71,10 +73,20 @@ const UploadForm = () => {
     }
   }
 
-  const updateStepStatus = (stepId: string, status: UploadStep['status']) => {
-    setUploadSteps(prev => 
-      prev.map(step => step.id === stepId ? { ...step, status } : step)
-    )
+  const startCyclingMessages = () => {
+    let currentIndex = 0
+    setCurrentMessage(messages[0])
+    cycleIntervalRef.current = setInterval(() => {
+      currentIndex = (currentIndex + 1) % messages.length
+      setCurrentMessage(messages[currentIndex])
+    }, 1500) // Cycle every 1.5 seconds
+  }
+
+  const stopCyclingMessages = () => {
+    if (cycleIntervalRef.current) {
+      clearInterval(cycleIntervalRef.current)
+      cycleIntervalRef.current = null
+    }
   }
 
   const onSubmit = async (data: UploadFormSchema) => {
@@ -84,51 +96,12 @@ const UploadForm = () => {
     }
 
     setIsUploading(true)
-    
-    // Initialize steps
-    const steps: UploadStep[] = [
-      {
-        id: 'upload',
-        title: 'Sending video chunks',
-        description: 'Uploading video data to server',
-        status: 'pending'
-      },
-      {
-        id: 'transcode-144p',
-        title: 'Transcoding to 144p',
-        description: 'Creating low resolution variant',
-        status: 'pending'
-      },
-      {
-        id: 'transcode-360p',
-        title: 'Transcoding to 360p',
-        description: 'Creating medium resolution variant',
-        status: 'pending'
-      },
-      {
-        id: 'transcode-720p',
-        title: 'Transcoding to 720p',
-        description: 'Creating high resolution variant',
-        status: 'pending'
-      },
-      {
-        id: 'storage',
-        title: 'Uploading to storage',
-        description: 'Saving chunks to object store',
-        status: 'pending'
-      }
-    ]
-    setUploadSteps(steps)
+    startCyclingMessages()
     
     try {
-      // Step 1: Upload chunks
-      updateStepStatus('upload', 'in-progress')
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate delay
-      
       const formData = new FormData()
       formData.append('video', data.video)
       formData.append('title', data.title)
-      console.log(apiEndpoints.uploadServer.upload)
       
       const response = await axios.post(apiEndpoints.uploadServer.upload, formData, {
         headers: {
@@ -136,47 +109,20 @@ const UploadForm = () => {
         },
       })
       
-      updateStepStatus('upload', 'completed')
-      
-      // Step 2: Transcode 144p
-      updateStepStatus('transcode-144p', 'in-progress')
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      updateStepStatus('transcode-144p', 'completed')
-      
-      // Step 3: Transcode 360p
-      updateStepStatus('transcode-360p', 'in-progress')
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      updateStepStatus('transcode-360p', 'completed')
-      
-      // Step 4: Transcode 720p
-      updateStepStatus('transcode-720p', 'in-progress')
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      updateStepStatus('transcode-720p', 'completed')
-      
-      // Step 5: Upload to storage
-      updateStepStatus('storage', 'in-progress')
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      updateStepStatus('storage', 'completed')
-
+      stopCyclingMessages()
       const timeElapsed = response.data.elapsed
       toast.success(`Video uploaded successfully, took ${timeElapsed.toFixed(2)} seconds`)
       
-      // Reset form after a brief delay to show completion
-      await new Promise(resolve => setTimeout(resolve, 1000))
       form.reset()
       setVideoPreview(null)
       setVideoSize(null)
       setFileName(null)
-      setUploadSteps([])
+      setCurrentMessage('')
       
     } catch (error) {
       console.error('Upload error:', error)
-      
-      // Mark current step as error
-      const currentStep = uploadSteps.find(s => s.status === 'in-progress')
-      if (currentStep) {
-        updateStepStatus(currentStep.id, 'error')
-      }
+      stopCyclingMessages()
+      setCurrentMessage('')
       
       if (axios.isAxiosError(error)) {
         toast.error(error.response?.data?.message || error.message || 'Failed to upload video')
@@ -319,14 +265,7 @@ const UploadForm = () => {
               className='w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm hover:shadow-md hover:shadow-primary/20 disabled:opacity-50 font-medium' 
               disabled={isUploading || !fileName}
             >
-              {isUploading ? (
-                <div className='flex items-center gap-2'>
-                  <Spinner />
-                  <span>Uploading...</span>
-                </div>
-              ) : (
-                'Upload Video'
-              )}
+              {isUploading ? 'Uploading...' : 'Upload Video'}
             </Button>
           </div>
 
@@ -347,8 +286,8 @@ const UploadForm = () => {
             </div>
             
             <div className='p-4'>
-              {isUploading && uploadSteps.length > 0 ? (
-                <UploadProgress steps={uploadSteps} />
+              {isUploading ? (
+                <UploadProgress message={currentMessage} />
               ) : videoPreview ? (
                 <div className='aspect-video w-full overflow-hidden rounded-md bg-muted border border-border'>
                   <video 

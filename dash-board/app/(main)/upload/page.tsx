@@ -2,7 +2,7 @@ import UploadForm from "@/components/task/upload/uploadForm"
 
 const UploadPage = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen mx-24 mt-20">
       <div className="mx-auto px-6 py-8 max-w-[1400px]">
         <div className="mb-8">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Upload Video</h1>
