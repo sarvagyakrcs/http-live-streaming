@@ -9,11 +9,14 @@ const BASE_URL = baseUrls.videoServer
 const PlayPage = async ({ params }: Props) => {
     const { video: videoName } = await params
     
+    // Decode URL-encoded name (e.g., "I%20really%20do" -> "I really do")
+    const decodedVideoName = decodeURIComponent(videoName)
+    
     // Construct the full HLS URL from video name
     const hlsUrl = `${BASE_URL}/${videoName}/master.m3u8`
     
     // Format title from video name (e.g., "supa-strikas" -> "Supa Strikas")
-    const title = videoName
+    const title = decodedVideoName
         .split('-')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ')

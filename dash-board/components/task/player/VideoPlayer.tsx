@@ -464,8 +464,12 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-contain"
         onClick={handleVideoClick}
+        onContextMenu={(e) => e.preventDefault()}
         playsInline
         crossOrigin="anonymous"
+        controlsList="nodownload noremoteplayback noplaybackrate"
+        disablePictureInPicture
+        disableRemotePlayback
       />
 
       {/* Loading State */}
@@ -738,6 +742,10 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
         preload="metadata"
         muted
         crossOrigin="anonymous"
+        onContextMenu={(e) => e.preventDefault()}
+        controlsList="nodownload noremoteplayback noplaybackrate"
+        disablePictureInPicture
+        disableRemotePlayback
       />
       <canvas
         ref={previewCanvasRef}
