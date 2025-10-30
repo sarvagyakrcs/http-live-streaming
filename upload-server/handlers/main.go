@@ -84,9 +84,14 @@ func UploadHandler(c *gin.Context) {
 		return
 	}
 	log.Println("Uploading output to r2 bucket")
-	lib.UploadOutToBucket(filePath)
 
-	defer func () {
+	remoteUploadDir := file.Filename
+	if title != "" {
+		remoteUploadDir = title
+	}
+	lib.UploadOutToBucket(remoteUploadDir)
+
+	defer func() {
 		// step : 6 -> delete local files
 		if err := os.RemoveAll(uploadDir); err != nil {
 			log.Println("Failed to delete local files", err)
