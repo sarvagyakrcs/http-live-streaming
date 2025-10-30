@@ -18,8 +18,11 @@ const Layout = ({ children }: Props) => {
           <Link href="/upload" className={buttonVariants({ variant: "default" })}>
             Upload
           </Link>
-          <Link href="/bucket" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/bucket" className={buttonVariants({ variant: "secondary" })}>
             Bucket Manager
+          </Link>
+          <Link href="/status" className={buttonVariants({ variant: "outline" })}>
+            Status
           </Link>
         </div>
       </nav>
