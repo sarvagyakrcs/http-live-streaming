@@ -1,21 +1,10 @@
-```txt
-npm install
-npm run dev
-```
+what it does?
+- this service just syncs all slave buckets bsed on a master r2 bucket
+yeah just that
 
-```txt
-npm run deploy
-```
-
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
-
-```txt
-npm run cf-typegen
-```
-
-Pass the `CloudflareBindings` as generics when instantiation `Hono`:
-
-```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
-```
+---
+how to run
+- rename `example.bucket-data.go` to `bucket-data.go`
+- fill in all credentials
+- run `go run main.go`
+thats it
