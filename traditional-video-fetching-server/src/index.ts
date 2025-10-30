@@ -9,6 +9,10 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('/*', cors())
 
 // Serve files from R2 bucket
+
+app.get('/ping', (c) => {
+  return c.json({ message: 'pong' })
+})
 app.get('/*', async (c) => {
   const path = c.req.path.substring(1) // Remove leading slash
   

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Hls from 'hls.js'
 import { Play, Pause, Volume2, VolumeX, Maximize, Settings, SkipBack, SkipForward, Check } from 'lucide-react'
 
@@ -32,7 +32,11 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
   const [currentQuality, setCurrentQuality] = useState(-1)
   const [activeQuality, setActiveQuality] = useState<number | null>(null) // Actually playing quality
   const [isLoading, setIsLoading] = useState(true)
+  const [isBuffering, setIsBuffering] = useState(false)
+  const [showSkipAnimation, setShowSkipAnimation] = useState<'forward' | 'backward' | null>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
+  const lastTapTime = useRef<{ left: number; right: number }>({ left: 0, right: 0 })
+  const skipAnimationTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const video = videoRef.current
@@ -109,21 +113,39 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
         setBuffered(isNaN(bufferedPercent) ? 0 : bufferedPercent)
       }
     }
+    const handleWaiting = () => setIsBuffering(true)
+    const handleCanPlay = () => setIsBuffering(false)
+    const handlePlaying = () => setIsBuffering(false)
 
     video.addEventListener('timeupdate', updateTime)
     video.addEventListener('loadedmetadata', updateDuration)
     video.addEventListener('progress', updateBuffered)
     video.addEventListener('durationchange', updateDuration)
+    video.addEventListener('waiting', handleWaiting)
+    video.addEventListener('canplay', handleCanPlay)
+    video.addEventListener('playing', handlePlaying)
 
     return () => {
       video.removeEventListener('timeupdate', updateTime)
       video.removeEventListener('loadedmetadata', updateDuration)
       video.removeEventListener('progress', updateBuffered)
       video.removeEventListener('durationchange', updateDuration)
+      video.removeEventListener('waiting', handleWaiting)
+      video.removeEventListener('canplay', handleCanPlay)
+      video.removeEventListener('playing', handlePlaying)
     }
   }, [])
 
-  const togglePlay = () => {
+  const adjustVolume = useCallback((delta: number) => {
+    const video = videoRef.current
+    if (!video) return
+    const newVolume = Math.max(0, Math.min(1, video.volume + delta))
+    video.volume = newVolume
+    setVolume(newVolume)
+    setIsMuted(newVolume === 0)
+  }, [])
+
+  const togglePlay = useCallback(() => {
     const video = videoRef.current
     if (!video) return
 
@@ -134,15 +156,15 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
       video.pause()
       setIsPlaying(false)
     }
-  }
+  }, [])
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     const video = videoRef.current
     if (!video) return
 
     video.muted = !video.muted
     setIsMuted(!isMuted)
-  }
+  }, [isMuted])
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current
@@ -164,7 +186,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     video.currentTime = pos * video.duration
   }
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     const container = containerRef.current
     if (!container) return
 
@@ -173,12 +195,113 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     } else {
       document.exitFullscreen()
     }
-  }
+  }, [])
 
-  const skip = (seconds: number) => {
+  const skip = useCallback((seconds: number) => {
     const video = videoRef.current
     if (!video) return
     video.currentTime = Math.max(0, Math.min(video.currentTime + seconds, video.duration))
+    
+    // Show skip animation
+    setShowSkipAnimation(seconds > 0 ? 'forward' : 'backward')
+    if (skipAnimationTimeout.current) {
+      clearTimeout(skipAnimationTimeout.current)
+    }
+    skipAnimationTimeout.current = setTimeout(() => {
+      setShowSkipAnimation(null)
+    }, 800)
+  }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'm':
+          e.preventDefault()
+          toggleMute()
+          break
+        case 'f':
+          e.preventDefault()
+          toggleFullscreen()
+          break
+        case 'k':
+        case ' ':
+          e.preventDefault()
+          togglePlay()
+          break
+        case 'j':
+          e.preventDefault()
+          skip(-10)
+          break
+        case 'l':
+          e.preventDefault()
+          skip(10)
+          break
+        case 'arrowleft':
+          e.preventDefault()
+          skip(-5)
+          break
+        case 'arrowright':
+          e.preventDefault()
+          skip(5)
+          break
+        case 'arrowup':
+          e.preventDefault()
+          adjustVolume(0.1)
+          break
+        case 'arrowdown':
+          e.preventDefault()
+          adjustVolume(-0.1)
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [toggleMute, toggleFullscreen, togglePlay, skip, adjustVolume])
+
+  const handleVideoClick = (e: React.MouseEvent<HTMLVideoElement>) => {
+    const video = videoRef.current
+    if (!video) return
+    
+    const rect = video.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const videoWidth = rect.width
+    const now = Date.now()
+    
+    // Left third for backward skip
+    if (clickX < videoWidth / 3) {
+      const timeSinceLastTap = now - lastTapTime.current.left
+      if (timeSinceLastTap < 300) {
+        // Double tap detected
+        skip(-5)
+      }
+      lastTapTime.current.left = now
+    }
+    // Right third for forward skip
+    else if (clickX > (videoWidth * 2) / 3) {
+      const timeSinceLastTap = now - lastTapTime.current.right
+      if (timeSinceLastTap < 300) {
+        // Double tap detected
+        skip(5)
+      }
+      lastTapTime.current.right = now
+    }
+    // Middle third for play/pause
+    else {
+      const timeSinceLastTap = Math.max(
+        now - lastTapTime.current.left,
+        now - lastTapTime.current.right
+      )
+      if (timeSinceLastTap > 300) {
+        togglePlay()
+      }
+    }
   }
 
   const changeQuality = (levelIndex: number) => {
@@ -244,14 +367,66 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
       <video
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-contain"
-        onClick={togglePlay}
+        onClick={handleVideoClick}
         playsInline
       />
 
       {/* Loading State */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black">
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-50">
           <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Buffering Spinner */}
+      {isBuffering && !isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Skip Animations */}
+      {showSkipAnimation === 'backward' && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+          <div className="relative animate-[fadeIn_0.3s_ease-out]">
+            {/* Background circle */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-32 h-32 bg-black/60 backdrop-blur-sm rounded-full" />
+            </div>
+            {/* Content */}
+            <div className="relative flex items-center justify-center w-32 h-32">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center -space-x-3">
+                  <SkipBack className="w-8 h-8 text-white opacity-60" />
+                  <SkipBack className="w-8 h-8 text-white opacity-80" />
+                  <SkipBack className="w-8 h-8 text-white" />
+                </div>
+                <span className="text-white text-sm font-semibold mt-1">5 seconds</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSkipAnimation === 'forward' && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+          <div className="relative animate-[fadeIn_0.3s_ease-out]">
+            {/* Background circle */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-32 h-32 bg-black/60 backdrop-blur-sm rounded-full" />
+            </div>
+            {/* Content */}
+            <div className="relative flex items-center justify-center w-32 h-32">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center -space-x-3">
+                  <SkipForward className="w-8 h-8 text-white" />
+                  <SkipForward className="w-8 h-8 text-white opacity-80" />
+                  <SkipForward className="w-8 h-8 text-white opacity-60" />
+                </div>
+                <span className="text-white text-sm font-semibold mt-1">5 seconds</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
