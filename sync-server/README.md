@@ -1,1 +1,0 @@
-- it just syncs main r2 bucket to other regional buckets

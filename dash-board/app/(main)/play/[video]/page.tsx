@@ -6,6 +6,15 @@ type Props = {
 }
 const BASE_URL = baseUrls.videoServer
 
+export const generateMetadata = async ({ params }: Props) => {
+    const { video: videoName } = await params
+    const decodedVideoName = decodeURIComponent(videoName)
+    return {
+        title: `${decodedVideoName}`,
+        description: `Playing ${decodedVideoName}`,
+    }
+}
+
 const PlayPage = async ({ params }: Props) => {
     const { video: videoName } = await params
     
