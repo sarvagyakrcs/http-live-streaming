@@ -9,5 +9,8 @@ export const apiEndpoints : Record<string, Record<string, string>> = {
     uploadServer: {
         upload: getUrl(baseUrls.uploadServer, "upload"),
         ping: getUrl(baseUrls.uploadServer, "ping")
+    },
+    videoServer: {
+        ping: getUrl(baseUrls.videoServer, "ping")
     }
 }   

@@ -20,6 +20,9 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
+  const previewVideoRef = useRef<HTMLVideoElement>(null)
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const previewHlsRef = useRef<Hls | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(1)
@@ -34,6 +37,10 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
   const [isLoading, setIsLoading] = useState(true)
   const [isBuffering, setIsBuffering] = useState(false)
   const [showSkipAnimation, setShowSkipAnimation] = useState<'forward' | 'backward' | null>(null)
+  const [previewTime, setPreviewTime] = useState<number | null>(null)
+  const [previewPosition, setPreviewPosition] = useState<number>(0)
+  const [previewThumbnail, setPreviewThumbnail] = useState<string | null>(null)
+  const [previewAlign, setPreviewAlign] = useState<'left' | 'center' | 'right'>('center')
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
   const lastTapTime = useRef<{ left: number; right: number }>({ left: 0, right: 0 })
   const skipAnimationTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -97,6 +104,38 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url
       queueMicrotask(() => setIsLoading(false))
+    }
+  }, [url])
+
+  // Setup preview video for thumbnails
+  useEffect(() => {
+    const previewVideo = previewVideoRef.current
+    if (!previewVideo) return
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 10
+      })
+      previewHlsRef.current = hls
+
+      hls.loadSource(url)
+      hls.attachMedia(previewVideo)
+
+      // Set to lowest quality for preview
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (hls.levels.length > 0) {
+          hls.currentLevel = hls.levels.length - 1 // Lowest quality
+        }
+      })
+
+      return () => {
+        hls.destroy()
+      }
+    } else if (previewVideo.canPlayType('application/vnd.apple.mpegurl')) {
+      previewVideo.src = url
     }
   }, [url])
 
@@ -184,6 +223,63 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     const rect = progressBar.getBoundingClientRect()
     const pos = (e.clientX - rect.left) / rect.width
     video.currentTime = pos * video.duration
+  }
+
+  const handleProgressHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    const progressBar = progressBarRef.current
+    const previewVideo = previewVideoRef.current
+    const canvas = previewCanvasRef.current
+    
+    if (!progressBar || !duration || !previewVideo || !canvas) return
+
+    const rect = progressBar.getBoundingClientRect()
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const time = pos * duration
+    const mouseX = e.clientX - rect.left
+    
+    setPreviewTime(time)
+    setPreviewPosition(mouseX)
+
+    // Determine alignment based on position to avoid edge overflow
+    // Thumbnail width is ~160px, so we need ~80px on each side for center alignment
+    const thumbnailHalfWidth = 80
+    const padding = 10 // Additional padding from edges
+    
+    if (mouseX < thumbnailHalfWidth + padding) {
+      setPreviewAlign('left')
+    } else if (mouseX > rect.width - thumbnailHalfWidth - padding) {
+      setPreviewAlign('right')
+    } else {
+      setPreviewAlign('center')
+    }
+
+    // Seek preview video to the time
+    if (Math.abs(previewVideo.currentTime - time) > 0.5) {
+      previewVideo.currentTime = time
+      
+      // Wait for video to seek and then capture frame
+      const onSeeked = () => {
+        try {
+          const ctx = canvas.getContext('2d')
+          if (ctx && previewVideo.readyState >= 2) {
+            canvas.width = 160
+            canvas.height = 90
+            ctx.drawImage(previewVideo, 0, 0, canvas.width, canvas.height)
+            setPreviewThumbnail(canvas.toDataURL())
+          }
+        } catch (err) {
+          console.error('Error capturing thumbnail:', err)
+        }
+        previewVideo.removeEventListener('seeked', onSeeked)
+      }
+      
+      previewVideo.addEventListener('seeked', onSeeked)
+    }
+  }
+
+  const handleProgressLeave = () => {
+    setPreviewTime(null)
+    setPreviewThumbnail(null)
   }
 
   const toggleFullscreen = useCallback(() => {
@@ -359,7 +455,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-black overflow-hidden"
+      className="relative w-full h-full bg-background overflow-hidden"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
@@ -369,19 +465,20 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
         className="absolute inset-0 w-full h-full object-contain"
         onClick={handleVideoClick}
         playsInline
+        crossOrigin="anonymous"
       />
 
       {/* Loading State */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black z-50">
-          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+        <div className="absolute inset-0 flex items-center justify-center bg-background z-50">
+          <div className="w-12 h-12 border-4 border-muted border-t-primary rounded-full animate-spin" />
         </div>
       )}
 
       {/* Buffering Spinner */}
       {isBuffering && !isLoading && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
-          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-muted border-t-primary rounded-full animate-spin" />
         </div>
       )}
 
@@ -391,17 +488,17 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
           <div className="relative animate-[fadeIn_0.3s_ease-out]">
             {/* Background circle */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-32 h-32 bg-black/60 backdrop-blur-sm rounded-full" />
+              <div className="w-32 h-32 bg-card/80 backdrop-blur-sm rounded-full border border-border" />
             </div>
             {/* Content */}
             <div className="relative flex items-center justify-center w-32 h-32">
               <div className="flex flex-col items-center gap-1">
                 <div className="flex items-center -space-x-3">
-                  <SkipBack className="w-8 h-8 text-white opacity-60" />
-                  <SkipBack className="w-8 h-8 text-white opacity-80" />
-                  <SkipBack className="w-8 h-8 text-white" />
+                  <SkipBack className="w-8 h-8 text-foreground opacity-60" />
+                  <SkipBack className="w-8 h-8 text-foreground opacity-80" />
+                  <SkipBack className="w-8 h-8 text-foreground" />
                 </div>
-                <span className="text-white text-sm font-semibold mt-1">5 seconds</span>
+                <span className="text-foreground text-sm font-semibold mt-1">5 seconds</span>
               </div>
             </div>
           </div>
@@ -413,17 +510,17 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
           <div className="relative animate-[fadeIn_0.3s_ease-out]">
             {/* Background circle */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-32 h-32 bg-black/60 backdrop-blur-sm rounded-full" />
+              <div className="w-32 h-32 bg-card/80 backdrop-blur-sm rounded-full border border-border" />
             </div>
             {/* Content */}
             <div className="relative flex items-center justify-center w-32 h-32">
               <div className="flex flex-col items-center gap-1">
                 <div className="flex items-center -space-x-3">
-                  <SkipForward className="w-8 h-8 text-white" />
-                  <SkipForward className="w-8 h-8 text-white opacity-80" />
-                  <SkipForward className="w-8 h-8 text-white opacity-60" />
+                  <SkipForward className="w-8 h-8 text-foreground" />
+                  <SkipForward className="w-8 h-8 text-foreground opacity-80" />
+                  <SkipForward className="w-8 h-8 text-foreground opacity-60" />
                 </div>
-                <span className="text-white text-sm font-semibold mt-1">5 seconds</span>
+                <span className="text-foreground text-sm font-semibold mt-1">5 seconds</span>
               </div>
             </div>
           </div>
@@ -433,7 +530,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
       {/* Always Visible Quality Indicator */}
       {getCurrentQualityLabel() && (
         <div className="absolute top-4 right-4 z-10 pointer-events-none">
-          <div className="px-3 py-1.5 bg-black/80 backdrop-blur-sm rounded-full border border-white/20 text-white text-xs font-semibold shadow-lg">
+          <div className="px-3 py-1.5 bg-card/90 backdrop-blur-sm rounded-full border border-border text-card-foreground text-xs font-semibold shadow-lg">
             {getCurrentQualityLabel()}
           </div>
         </div>
@@ -449,7 +546,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
         {/* Top Bar */}
         {title && (
           <div className="absolute top-0 left-0 right-0 p-4 pointer-events-auto">
-            <h2 className="text-white text-lg font-medium drop-shadow-lg">{title}</h2>
+            <h2 className="text-card-foreground text-lg font-medium drop-shadow-lg">{title}</h2>
           </div>
         )}
 
@@ -458,9 +555,9 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
           <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
             <button
               onClick={togglePlay}
-              className="w-20 h-20 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition-all transform hover:scale-110 shadow-2xl"
+              className="w-20 h-20 flex items-center justify-center rounded-full bg-destructive hover:bg-destructive/90 transition-all transform hover:scale-110 shadow-2xl"
             >
-              <Play className="w-10 h-10 text-white ml-1" fill="white" />
+              <Play className="w-10 h-10 text-destructive-foreground ml-1" fill="currentColor" />
             </button>
           </div>
         )}
@@ -468,52 +565,86 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
         {/* Bottom Controls */}
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-8 pointer-events-auto">
           {/* Progress Bar */}
-          <div className="mb-3">
+          <div className="mb-3 relative">
+            {/* Preview Tooltip */}
+            {previewTime !== null && (
+              <div 
+                className="absolute bottom-full mb-3 pointer-events-none z-50 w-40"
+                style={{ 
+                  left: previewAlign === 'left' ? `${previewPosition}px` :
+                        previewAlign === 'center' ? `${previewPosition - 80}px` :
+                        `${previewPosition - 160}px`
+                }}
+              >
+                <div className="flex flex-col items-center gap-2 w-full">
+                  {/* Thumbnail */}
+                  {previewThumbnail && (
+                    <div className="rounded-lg overflow-hidden border border-border shadow-xl bg-card w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={previewThumbnail} 
+                        alt="Preview" 
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  )}
+                  {/* Time */}
+                  <div className="px-3 py-1.5 bg-card/95 backdrop-blur-sm rounded-lg border border-border shadow-xl">
+                    <span className="text-card-foreground text-sm font-semibold whitespace-nowrap">
+                      {formatTime(previewTime)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div
               ref={progressBarRef}
-              className="relative w-full h-1 bg-white/30 rounded-full cursor-pointer hover:h-1.5 transition-all group"
+              className="relative w-full h-1 bg-muted rounded-full cursor-pointer hover:h-1.5 transition-all group"
               onClick={handleProgressClick}
+              onMouseMove={handleProgressHover}
+              onMouseLeave={handleProgressLeave}
             >
               {/* Buffered */}
               <div
-                className="absolute top-0 left-0 h-full bg-white/40 rounded-full"
+                className="absolute top-0 left-0 h-full bg-muted-foreground/40 rounded-full"
                 style={{ width: `${buffered}%` }}
               />
               {/* Progress */}
               <div
-                className="absolute top-0 left-0 h-full bg-red-600 rounded-full"
+                className="absolute top-0 left-0 h-full bg-destructive rounded-full"
                 style={{ width: `${(currentTime / duration) * 100 || 0}%` }}
               >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
           </div>
 
           {/* Control Buttons */}
-          <div className="flex items-center justify-between text-white">
+          <div className="flex items-center justify-between text-card-foreground">
             <div className="flex items-center gap-1">
               {/* Play/Pause */}
               <button
                 onClick={togglePlay}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
                 {isPlaying ? (
-                  <Pause className="w-5 h-5" fill="white" />
+                  <Pause className="w-5 h-5" fill="currentColor" />
                 ) : (
-                  <Play className="w-5 h-5" fill="white" />
+                  <Play className="w-5 h-5" fill="currentColor" />
                 )}
               </button>
 
               {/* Skip Buttons */}
               <button
                 onClick={() => skip(-10)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
                 <SkipBack className="w-4 h-4" />
               </button>
               <button
                 onClick={() => skip(10)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
                 <SkipForward className="w-4 h-4" />
               </button>
@@ -522,7 +653,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
               <div className="flex items-center gap-2 group/volume ml-2">
                 <button
                   onClick={toggleMute}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX className="w-4 h-4" />
@@ -537,7 +668,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
                   step="0.1"
                   value={volume}
                   onChange={handleVolumeChange}
-                  className="w-0 group-hover/volume:w-20 transition-all opacity-0 group-hover/volume:opacity-100 accent-red-600"
+                  className="w-0 group-hover/volume:w-20 transition-all opacity-0 group-hover/volume:opacity-100 accent-destructive"
                 />
               </div>
 
@@ -552,24 +683,24 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
               <div className="relative">
                 <button 
                   onClick={() => setShowQualityMenu(!showQualityMenu)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
 
                 {/* Quality Menu */}
                 {showQualityMenu && (
-                  <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-xl border border-white/10 min-w-[160px] py-2 z-50">
-                    <div className="px-3 py-2 text-xs text-white/60 font-medium border-b border-white/10">
+                  <div className="absolute bottom-full right-0 mb-2 bg-card border border-border rounded-lg shadow-xl min-w-[160px] py-2 z-50">
+                    <div className="px-3 py-2 text-xs text-muted-foreground font-medium border-b border-border">
                       Quality
                     </div>
                     {/* Auto */}
                     <button
                       onClick={() => changeQuality(-1)}
-                      className="w-full px-4 py-2 text-sm text-left hover:bg-white/10 transition-colors flex items-center justify-between"
+                      className="w-full px-4 py-2 text-sm text-left hover:bg-accent transition-colors flex items-center justify-between"
                     >
-                      <span className="text-white">Auto</span>
-                      {currentQuality === -1 && <Check className="w-4 h-4 text-white" />}
+                      <span className="text-card-foreground">Auto</span>
+                      {currentQuality === -1 && <Check className="w-4 h-4 text-primary" />}
                     </button>
                     {/* Quality Levels */}
                     {qualityLevels
@@ -578,10 +709,10 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
                         <button
                           key={level.index}
                           onClick={() => changeQuality(level.index)}
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-white/10 transition-colors flex items-center justify-between"
+                          className="w-full px-4 py-2 text-sm text-left hover:bg-accent transition-colors flex items-center justify-between"
                         >
-                          <span className="text-white">{getQualityLabel(level.height)}</span>
-                          {currentQuality === level.index && <Check className="w-4 h-4 text-white" />}
+                          <span className="text-card-foreground">{getQualityLabel(level.height)}</span>
+                          {currentQuality === level.index && <Check className="w-4 h-4 text-primary" />}
                         </button>
                       ))}
                   </div>
@@ -591,7 +722,7 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
               {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
                 <Maximize className="w-5 h-5" />
               </button>
@@ -599,6 +730,19 @@ export const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
           </div>
         </div>
       </div>
+
+      {/* Hidden preview video and canvas for thumbnail generation */}
+      <video
+        ref={previewVideoRef}
+        className="hidden"
+        preload="metadata"
+        muted
+        crossOrigin="anonymous"
+      />
+      <canvas
+        ref={previewCanvasRef}
+        className="hidden"
+      />
     </div>
   )
 }

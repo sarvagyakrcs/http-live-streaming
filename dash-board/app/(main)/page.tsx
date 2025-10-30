@@ -1,13 +1,16 @@
-import AllOk from "@/components/global/allOk"
+'use server'
+import { getRootDirectories } from '@/lib/r2-client'
+import Link from 'next/link'
 
-const HomePage = () => {
+const HomePage = async () => {
+    const directories = await getRootDirectories()
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center">
-      <div className="flex flex-col items-center justify-center gap-4">
-        <AllOk />
-      </div>
+    <div className='flex flex-col gap-4'>
+        {directories.map((directory) => (
+            <Link key={directory} href={`/play/${directory}`} className='text-blue-500 hover:text-blue-600'>{directory}</Link>
+        ))}
     </div>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;

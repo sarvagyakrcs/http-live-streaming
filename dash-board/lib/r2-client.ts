@@ -1,4 +1,4 @@
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
 export function getR2Client() {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -27,3 +27,23 @@ export function getBucketName() {
   return bucketName;
 }
 
+export async function getRootDirectories(): Promise<string[]> {
+  const client = getR2Client();
+  const bucketName = getBucketName();
+
+  const command = new ListObjectsV2Command({
+    Bucket: bucketName,
+    Delimiter: "/", // This gets only root-level directories
+    Prefix: "",
+  });
+
+  const response = await client.send(command);
+
+  // CommonPrefixes contains the directory names
+  const directories = response.CommonPrefixes?.map((prefix) => {
+    // Remove trailing slash from directory name
+    return prefix.Prefix?.replace(/\/$/, "") || "";
+  }).filter(Boolean) || [];
+
+  return directories;
+}

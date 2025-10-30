@@ -19,9 +19,9 @@ const PlayPage = async ({ params }: Props) => {
         .join(' ')
     
     return (
-        <div className="h-full w-full flex flex-col overflow-hidden bg-black">
+        <div className="h-full w-full flex flex-col overflow-hidden bg-background">
             {/* Video Player Container */}
-            <div className="flex-1 flex items-center justify-center bg-black overflow-hidden">
+            <div className="flex-1 flex items-center justify-center bg-background overflow-hidden">
                 <div className="w-full h-full flex items-center justify-center px-0">
                     <div className="w-full aspect-video max-h-full">
                         <VideoPlayer 
