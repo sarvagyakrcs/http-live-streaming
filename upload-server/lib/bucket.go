@@ -41,7 +41,7 @@ func UploadOutToBucket(remoteUploadDir string) bool {
 	}
 
 	// 3. Define the directories
-	localUploadDir := "./../output"
+	localUploadDir := "./output"
 	log.Printf("Starting upload from %s to R2 bucket %s (at %s/)...", localUploadDir, cfg.BucketName, remoteUploadDir)
 	err = UploadDirectoryToR2(context.Background(), s3Client, cfg.BucketName, localUploadDir, remoteUploadDir)
 	if err != nil {

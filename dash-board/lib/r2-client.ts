@@ -19,6 +19,23 @@ export function getR2Client() {
   });
 }
 
+export function getS3Client(region: string) {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error("Missing AWS credentials in environment variables");
+  }
+
+  return new S3Client({
+    region: region,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  });
+}
+
 export function getBucketName() {
   const bucketName = process.env.R2_BUCKET_NAME;
   if (!bucketName) {

@@ -66,7 +66,7 @@ func UploadToAllS3Buckets(buckets []BucketInfo) error {
 	}
 
 	// 2. Get the first folder from ./downloads
-	downloadsDir := ".//downloads"
+	downloadsDir := "./downloads"
 	if err := CheckDirExists(downloadsDir); err != nil {
 		return fmt.Errorf("downloads directory does not exist: %w", err)
 	}

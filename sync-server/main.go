@@ -5,6 +5,7 @@ import (
 	"DASH/sync-server/lib"
 	"log"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +18,8 @@ func main() {
 
 	// step : 2 -> create router
 	router := gin.Default()
+	router.MaxMultipartMemory = 500 << 20 // 500MB
+	router.Use(cors.Default())
 
 	// step : 3 -> add handlers
 	router.GET("/ping", handler.PingHandler)

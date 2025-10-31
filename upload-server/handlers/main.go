@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"DASH/upload-server/lib"
+	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -102,7 +104,7 @@ func UploadHandler(c *gin.Context) {
 			return
 		}
 
-		if err := os.RemoveAll("./../output"); err != nil {
+		if err := os.RemoveAll("./output"); err != nil {
 			log.Println("Failed to delete output directory", err)
 			c.JSON(http.StatusInternalServerError, map[string]any{
 				"message": "Something went wrong",
@@ -112,6 +114,24 @@ func UploadHandler(c *gin.Context) {
 		}
 		log.Println("Output directory deleted")
 	}()
+
+	// step : 5 -> call sync server once upload in master bucket is complete
+	syncRequestBody := map[string]interface{}{
+		"BucketName": remoteUploadDir,
+	}
+	syncBodyJson, err := json.Marshal(syncRequestBody)
+	if err != nil {
+		panic(err)
+	}
+	resp, err := http.Post(lib.GetEnv("SYNC_SERVER_URL")+"/sync", "application/json", bytes.NewBuffer(syncBodyJson))
+	if err != nil {
+		panic("failed to sync buckets")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		panic("failed to sync buckets")
+	}
+	log.Println("Buckets synced successfully")
 
 	// step : 5 -> return success response
 	elapsed := time.Since(start)

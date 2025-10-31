@@ -1,6 +1,6 @@
 #!/bin/bash
 # --- 1. Configuration ---
-OUTPUT_DIR="./../output"
+OUTPUT_DIR="./output"
 INPUT_FILE=${1:-"video.mp4"}
 
 # --- 2. Check for Input File ---
