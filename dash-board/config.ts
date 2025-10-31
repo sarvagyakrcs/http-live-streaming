@@ -2,7 +2,7 @@ import { getUrl } from "@/lib/utils";
 
 export const baseUrls : Record<string, string> = {
     uploadServer: "http://localhost:6969",
-    videoServer: "https://traditional-video-fetching-server.sarvagyakrcs.workers.dev",
+    videoServer: "https://test-video-fetching-server.sarvagyakrcs.workers.dev",
     syncServer: "http://localhost:9696"
 }
 
