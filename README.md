@@ -13,6 +13,33 @@
 
 ---
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Components](#components)
+  - [Dashboard](#dashboard)
+  - [Upload Server](#upload-server)
+  - [Cloudflare Worker Video Fetcher](#cloudflare-worker-video-fetcher)
+- [Prerequisites](#prerequisites)
+- [Installation and Setup](#installation-and-setup)
+  - [Cloudflare Worker Setup](#cloudflare-worker-setup)
+  - [Dashboard Configuration](#dashboard-configuration)
+  - [Upload Server Configuration](#upload-server-configuration)
+- [Running the Application](#running-the-application)
+  - [Using the Run Script](#using-the-run-script)
+  - [Manual Startup](#manual-startup)
+- [Usage](#usage)
+- [Technology Stack](#technology-stack)
+- [Development](#development)
+- [Deployment](#deployment)
+- [License](#license)
+- [Contributing](#contributing)
+- [Support](#support)
+
+---
+
 ## Screenshots
 
 <div align="center">
