@@ -93,6 +93,16 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
+# Start sync server first
+(cd sync-server && go run . 2>&1 | while IFS= read -r line; do
+    echo -e "${SYNC_COLOR}[sync-server]${RESET} $line"
+done) &
+SYNC_PID=$!
+
+# Wait for sync server to be ready
+echo -e "${DIM}${GRAY}Waiting for sync-server to initialize...${RESET}"
+sleep 3
+
 # Start upload server
 (cd upload-server && go run main.go 2>&1 | while IFS= read -r line; do
     echo -e "${UPLOAD_COLOR}[upload-server]${RESET} $line"
@@ -104,11 +114,5 @@ UPLOAD_PID=$!
     echo -e "${DASHBOARD_COLOR}[dash-board]${RESET} $line"
 done) &
 DASHBOARD_PID=$!
-
-# Start sync server
-(cd sync-server && go run . 2>&1 | while IFS= read -r line; do
-    echo -e "${SYNC_COLOR}[sync-server]${RESET} $line"
-done) &
-SYNC_PID=$!
 
 wait
