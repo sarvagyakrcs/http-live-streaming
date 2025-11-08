@@ -1,15 +1,11 @@
-<div align="center">
-  <img src="./dash-board/public/logo.svg" alt="HLS Logo" width="120" height="120">
-  
-  # HLS
-  
-  **HTTP Live Streaming Platform**
-  
-  A modern video streaming platform built on HLS technology with Cloudflare R2 storage and intelligent video processing capabilities.
-  
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-  
-</div>
+<img src="./dash-board/public/logo.svg" alt="HLS Logo" width="80" height="80">
+
+# HLS
+**HTTP Live Streaming Platform**
+
+A modern video streaming platform built on HLS technology with Cloudflare R2 storage and intelligent video processing capabilities.
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
@@ -42,24 +38,24 @@
 
 ## Screenshots
 
-<div align="center">
-
 ### Video Uploader
 Upload videos through an intuitive drag-and-drop interface with real-time progress tracking.
 
-<img src="./demo/video-uploader.png" alt="Video Uploader Interface" width="800">
+<img src="./demo/video-uploader.png" alt="Video Uploader Interface" width="100%">
+
+---
 
 ### Video Player
 Stream HLS content with an integrated player supporting adaptive bitrate streaming.
 
-<img src="./demo/video-player.png" alt="Video Player" width="800">
+<img src="./demo/video-player.png" alt="Video Player" width="100%">
+
+---
 
 ### Bucket Manager
 Manage your R2 bucket contents with an easy-to-use file browser.
 
-<img src="./demo/bucket-manager.png" alt="Bucket Manager" width="800">
-
-</div>
+<img src="./demo/bucket-manager.png" alt="Bucket Manager" width="100%">
 
 ---
 
