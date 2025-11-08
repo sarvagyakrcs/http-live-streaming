@@ -1,0 +1,1 @@
+go run cmd/telemetry-producer/main.go
