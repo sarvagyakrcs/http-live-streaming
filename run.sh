@@ -39,27 +39,6 @@ echo -e "   ${WHITE}•${RESET} ${WARNING}.env${RESET} file in dash-board projec
 echo -e "   ${WHITE}•${RESET} ${WARNING}.env${RESET} file in upload-server project"
 echo ""
 
-# Step 3
-echo -e "${ACCENT}Step 3:${RESET} ${WHITE}Configure S3 Bucket Details${RESET}"
-echo -e "${DIM}${GRAY}────────────────────────────────────────────────────────────${RESET}"
-echo -e "${WHITE}In sync-server:${RESET}"
-echo -e "   ${WHITE}•${RESET} Rename ${WARNING}example.bucket-data.go${RESET} to ${WARNING}bucket-data.go${RESET}"
-echo -e "   ${WHITE}•${RESET} Fill in all credentials and bucket details"
-echo -e ""
-echo -e "${WHITE}In dash-board:${RESET}"
-echo -e "   ${WHITE}•${RESET} Update ${WARNING}config.ts${RESET} with S3 bucket details (same as sync-server)"
-echo ""
-
-# Step 4
-echo -e "${ACCENT}Step 4:${RESET} ${WHITE}Setup Environment Files${RESET}"
-echo -e "${DIM}${GRAY}────────────────────────────────────────────────────────────${RESET}"
-echo -e "${WHITE}Rename ${WARNING}.env.example${RESET} to ${WARNING}.env${RESET} in:${RESET}"
-echo -e "   ${WHITE}•${RESET} sync-server"
-echo -e "   ${WHITE}•${RESET} upload-server"
-echo -e "   ${WHITE}•${RESET} dash-board"
-echo -e "${WHITE}Fill in all credentials in each ${WARNING}.env${RESET} file${RESET}"
-echo ""
-
 # Confirmation
 echo -e "${DIM}${GRAY}────────────────────────────────────────────────────────────${RESET}"
 echo -e "${WHITE}Press${RESET} ${SUCCESS}[ENTER]${RESET} ${WHITE}to continue once you've completed steps above${RESET}"
@@ -68,26 +47,24 @@ read
 
 echo ""
 
-# Step 5
-echo -e "${ACCENT}Step 5:${RESET} ${WHITE}Starting Servers${RESET}"
+# Step 3
+echo -e "${ACCENT}Step 3:${RESET} ${WHITE}Starting Servers${RESET}"
 echo -e "${DIM}${GRAY}────────────────────────────────────────────────────────────${RESET}"
-echo -e "Launching all servers with live logs"
+echo -e "Launching servers with live logs"
 echo ""
 
 # Create named pipes
 UPLOAD_PIPE=$(mktemp -u)
 DASHBOARD_PIPE=$(mktemp -u)
-SYNC_PIPE=$(mktemp -u)
 mkfifo "$UPLOAD_PIPE"
 mkfifo "$DASHBOARD_PIPE"
-mkfifo "$SYNC_PIPE"
 
 # Cleanup handler
 cleanup() {
     echo ""
     echo -e "${DIM}${GRAY}Shutting down servers${RESET}"
-    kill $UPLOAD_PID $DASHBOARD_PID $SYNC_PID 2>/dev/null
-    rm -f "$UPLOAD_PIPE" "$DASHBOARD_PIPE" "$SYNC_PIPE"
+    kill $UPLOAD_PID $DASHBOARD_PID 2>/dev/null
+    rm -f "$UPLOAD_PIPE" "$DASHBOARD_PIPE"
     exit 0
 }
 
@@ -104,11 +81,5 @@ UPLOAD_PID=$!
     echo -e "${DASHBOARD_COLOR}[dash-board]${RESET} $line"
 done) &
 DASHBOARD_PID=$!
-
-# Start sync server
-(cd sync-server && go run . 2>&1 | while IFS= read -r line; do
-    echo -e "${SYNC_COLOR}[sync-server]${RESET} $line"
-done) &
-SYNC_PID=$!
 
 wait
